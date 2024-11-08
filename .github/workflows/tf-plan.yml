@@ -1,0 +1,48 @@
+name: terraform/plan
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+
+permissions:
+  id-token: write # This is required for requesting the JWT
+  contents: read # This is required for actions/checkout
+
+jobs:
+  plan:
+    name: Terraform Plan
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.ref }}
+
+      - name: Configure AWS credentials
+        id: aws_credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::491181243761:role/tf_github_actions
+          aws-region: us-east-1
+
+      - name: Terraform init
+        id: terraform_init
+        working-directory: .
+        run: terraform init
+
+      # GitHub Acton to run tflint .
+
+      - name: Terraform validate
+        id: terraform_validate
+        working-directory: .
+        run: terraform validate
+
+      - name: Terraform plan
+        id: terraform_plan
+        working-directory: .
+        run: terraform plan
+        env:
+          GIT_SSH_COMMAND: "echo '${{ secrets.GSPC_PRIVATE_SSH_KEY }}' > id_rsa
+            && ssh-keyscan github.com > known_hosts
+            && chmod 600 id_rsa known_hosts
+            && ssh -i ./id_rsa -o UserKnownHostsFile=./known_hosts"
